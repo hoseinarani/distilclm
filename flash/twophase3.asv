@@ -1,0 +1,107 @@
+function twophaseVL
+clc
+clear
+clear ky kz n countrt
+
+global ky kz n countrt
+countrt=50;
+% n=[.5 .5];
+% Tc=[647.3 562.2];
+% Pc=[221.2e5 48.98e5];
+% w=[.344 .21];
+
+% n=[.4 .4 .2];
+% Tc=[647.3 562.2 591.8];
+% Pc=[221.2e5 48.98e5 41e5];
+% w=[.344 .21 .263];
+
+% water       benzen   co2     n-pentan
+n=[.1        .4       .2     .3];
+Tc=[647.3    562.2    304.1   469.7];
+Pc=[221.2e5  48.98e5  72.8e5  33.7e5];
+w= [.344     .21      .239    .251 ];
+P=101e3*5;
+T=350;
+R=8.314;
+n1=.5;
+er1=1;
+er2=0;
+x=zeros(size(n))+1e-6;
+x(1)=1e6;
+z=zeros(size(n))+1/size(n,2);
+y=zeros(size(n))+1/size(n,2);
+% x=[2 eps eps eps];
+% z=[.3 .3 .3  .1];
+% y=[.3 .3 .3  .1];
+
+k=y./x;
+k=[1e- 1000 1000 1000]
+a=1;
+
+while abs(er1-er2) > 1e-3
+    for B1=1e-6:1/10:1-1e-6
+           if (RR(B1,k,n)*RR(B1+1/10,k,n))<0 
+               B=B1+.5e-3; 
+           end
+            
+    end
+    x=n./(B+k*(1-B));
+    y=k.*x;
+    zy=Zv(T,P,Tc,Pc,w,y);
+    zx=Zl(T,P,Tc,Pc,w,x);
+    for i=1:size(n,2)
+        k(i)=fi(T,P,Tc,Pc,w,x,zx,i)./fi(T,P,Tc,Pc,w,y,zy,i);
+    end
+    er1=er2;
+    er2=(B);
+end
+er1=1;
+er2=0;
+while abs(er1-er2) > 1e-5
+    for i=1:size(n,2)
+%         e=[log(k(i))-log(fi(T,P,Tc,Pc,w,x,zx,i))+log(fi(T,P,Tc,Pc,w,y,zy,i))
+%             RR(B,k,n)];
+%         d=zeros(1,size(n,2));
+%         d(1,i)=1e-3;
+        %         dRRydky=(RRy(By,Bz,ky+d,kz,n)-RRy(By,Bz,ky,kz,n))/(log(ky(i)+d(i))-log(ky(i)));
+        %         dRRydBy=(RRy(By+d(i),Bz,ky,kz,n)-RRy(By,Bz,ky,kz,n))/d(i);
+        %         dRRydkz=(RRy(By,Bz,ky,kz+d,n)-RRy(By,Bz,ky,kz,n))/(log(kz(i)+d(i))-log(kz(i)));
+        %         dRRydBz=(RRy(By,Bz+d(i),ky,kz,n)-RRy(By,Bz,ky,kz,n))/d(i);
+        %         dRRzdky=(RRz(By,Bz,ky+d,kz,n)-RRz(By,Bz,ky,kz,n))/(log(ky(i)+d(i))-log(ky(i)));
+        %         dRRzdBy=(RRz(By+d(i),Bz,ky,kz,n)-RRz(By,Bz,ky,kz,n))/d(i);
+        %         dRRzdkz=(RRz(By,Bz,ky,kz+d,n)-RRz(By,Bz,ky,kz,n))/(log(kz(i)+d(i))-log(kz(i)));
+        %         dRRzdBz=(RRz(By,Bz+d(i),ky,kz,n)-RRz(By,Bz,ky,kz,n))/d(i);
+        e=[(k(i))-(fi(T,P,Tc,Pc,w,x,zx,i))/(fi(T,P,Tc,Pc,w,y,zy,i))
+            RR(B,k,n)];
+        d=zeros(1,size(n,2));
+        d(1,i)=1e-4;
+        dRRdk=(RR(B,k+d,n)-RR(B,k,n))/d(i);
+        dRRdB=(RR(B+d(i),k,n)-RR(B,k,n))/d(i);
+
+        J=[  1         0 
+            dRRdk dRRdB ];
+        
+        delta=J\-e;
+        %         ky(i)=exp(log(ky(i))+delta(1));
+        %         kz(i)=exp(log(kz(i))+delta(3));
+        k(i)=(k(i))+delta(1);
+        B=B+delta(2);
+    end
+    x=n./(B+k*(1-B));
+    y=k.*x;
+    zy=Zv(T,P,Tc,Pc,w,y);
+    zx=Zl(T,P,Tc,Pc,w,x);
+    for i=1:size(n,2)
+        k(i)=fi(T,P,Tc,Pc,w,x,zx,i)./fi(T,P,Tc,Pc,w,y,zy,i);
+    end
+    er1=er2;
+    er2=(norm(x)+norm(y)+B);
+end
+format short eng
+sum(x)
+sum(y)
+sum(z)
+x
+y
+B
+k

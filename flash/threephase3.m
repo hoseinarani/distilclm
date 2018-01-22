@@ -1,0 +1,119 @@
+function [ans3,By,Bz,x,y,z,zx,zy,zz]=threephase3(T,P,comp,K,n,ky,kz)
+counter=50;
+countrtbisec=50;
+k=10;
+er1=1;
+er2=0;
+jj=0;
+ans3=1;
+while abs(er1-er2) > 1e-2
+    jj=jj+1;
+    if jj>countrtbisec
+        ans3=0;
+        return
+    end
+    a=1;
+    for i=1:k
+        for j=1:k+1-i
+            B1=[(i-1)/k,(j-1)/k];%[By,Bz]
+            B2=[(i-1)/k,(j)/k];
+            B3=[(i)/k,(j-1)/k];
+            if (RRy(B1(1),B1(2),ky,kz,n)*RRy(B2(1),B2(2),ky,kz,n)<=0 ...
+                    | RRy(B1(1),B1(2),ky,kz,n)*RRy(B3(1),B3(2),ky,kz,n)<=0) ...
+                    &(RRz(B1(1),B1(2),ky,kz,n)*RRz(B2(1),B2(2),ky,kz,n)<=0 ...
+                    | RRz(B1(1),B1(2),ky,kz,n)*RRz(B3(1),B3(2),ky,kz,n)<=0)
+
+                B(a,1)=(B1(1)+B2(1)+B3(1))/3;
+                B(a,2)=(B1(2)+B2(2)+B3(2))/3;
+                a=a+1;
+            end
+            if  (RRy(B1(1)+1/k,B1(2)+1/k,ky,kz,n)*RRy(B2(1),B2(2),ky,kz,n)<=0 ...
+                    | RRy(B1(1)+1/k,B1(2)+1/k,ky,kz,n)*RRy(B3(1),B3(2),ky,kz,n)<=0) ...
+                    &(RRz(B1(1)+1/k,B1(2)+1/k,ky,kz,n)*RRz(B2(1),B2(2),ky,kz,n)<=0 ...
+                    | RRz(B1(1)+1/k,B1(2)+1/k,ky,kz,n)*RRz(B3(1),B3(2),ky,kz,n)<=0)
+                B(a,1)=(B1(1)+1/k+B2(1)+B3(1))/3;
+                B(a,2)=(B1(2)+1/k+B2(2)+B3(2))/3;
+                a=a+1;
+
+            end
+        end
+    end
+    if a==1
+        ans3=0;
+        return
+    end
+    b=mean(B);
+    By=b(1);
+    Bz=b(2);
+    x=n./(1+By.*(ky-1)+Bz.*(kz-1));
+    y=ky.*x;
+    z=kz.*x;
+    zy=Zv(T,P,comp,K,y);
+    zx=Zl(T,P,comp,K,x);
+    zz=Zl(T,P,comp,K,z);
+    for i=1:size(n,2)
+        ky(i)=fi(T,P,comp,K,x,zx,i)./fi(T,P,comp,K,y,zy,i);
+        kz(i)=fi(T,P,comp,K,x,zx,i)./fi(T,P,comp,K,z,zz,i);
+    end
+    er1=er2;
+    er2=(By+Bz);
+end
+er1=1;
+er2=0;
+jj=0;
+while abs(er1-er2) > 1e-6
+    jj=jj+1;
+    if jj>counter | By<0 | Bz<0 | x<0 | y<0 | z<0 | 1-(By+Bz)<0 | By>1 | Bz>1 | x>1 | y>1 | z>1 | 1-(By+Bz)>1
+        ans3=0;
+        return
+    end
+    for i=1:size(n,2)
+        e=[(ky(i))-(fi(T,P,comp,K,x,zx,i))/(fi(T,P,comp,K,y,zy,i))
+            RRy(By,Bz,ky,kz,n)
+            (kz(i))-(fi(T,P,comp,K,x,zx,i))/(fi(T,P,comp,K,z,zz,i))
+            RRz(By,Bz,ky,kz,n)];
+        d=1e-4;
+        dRRydky=(RRy(By,Bz,ky+d,kz,n)-RRy(By,Bz,ky,kz,n))/d;
+        dRRydBy=(RRy(By+d,Bz,ky,kz,n)-RRy(By,Bz,ky,kz,n))/d;
+        dRRydkz=(RRy(By,Bz,ky,kz+d,n)-RRy(By,Bz,ky,kz,n))/d;
+        dRRydBz=(RRy(By,Bz+d,ky,kz,n)-RRy(By,Bz,ky,kz,n))/d;
+        dRRzdky=(RRz(By,Bz,ky+d,kz,n)-RRz(By,Bz,ky,kz,n))/d;
+        dRRzdBy=(RRz(By+d,Bz,ky,kz,n)-RRz(By,Bz,ky,kz,n))/d;
+        dRRzdkz=(RRz(By,Bz,ky,kz+d,n)-RRz(By,Bz,ky,kz,n))/d;
+        dRRzdBz=(RRz(By,Bz+d,ky,kz,n)-RRz(By,Bz,ky,kz,n))/d;
+
+        J=[1        0       0       0
+            dRRydky dRRydBy dRRydkz dRRydBz
+            0       0       1       0
+            dRRzdky dRRzdBy dRRzdkz dRRzdBz];
+
+        delta=solution3(J,e);
+        ky(i)=(ky(i))+delta(1);
+        kz(i)=(kz(i))+delta(3);
+        By=By+delta(2);
+        Bz=Bz+delta(4);
+    end
+    x=n./(1+By.*(ky-1)+Bz.*(kz-1));
+    y=ky.*x;
+    z=kz.*x;
+    zy=Zv(T,P,comp,K,y);
+    zx=Zl(T,P,comp,K,x);
+    zz=Zl(T,P,comp,K,z);
+    for i=1:size(n,2)
+        ky(i)=fi(T,P,comp,K,x,zx,i)./fi(T,P,comp,K,y,zy,i);
+        kz(i)=fi(T,P,comp,K,x,zx,i)./fi(T,P,comp,K,z,zz,i);
+    end
+    er1=er2;
+    er2=(Bz+By);
+end
+
+
+
+
+
+
+
+
+
+
+
